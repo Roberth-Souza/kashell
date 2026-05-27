@@ -19,7 +19,7 @@ def main():
             if command[5:] in built_ins:
                 print(f"{command.split()[1]} is a shell builtin")
             else:
-                print(f"{command}: not found")
+                print(f"{command.split()[1]}: not found")
 
         elif command == "exit":
             break
