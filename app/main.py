@@ -6,7 +6,7 @@ def main():
         sys.stdout.write("$ ")
         command = input()
 
-        if command.split()[0] == "echo":
+        if command.startswith("echo "):
             print(command[5:])
 
         elif command == "exit":
