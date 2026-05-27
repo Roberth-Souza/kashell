@@ -15,7 +15,7 @@ def main():
         if command.startswith("echo "):
             print(command[5:])
 
-        if command.startswith("type "):
+        elif command.startswith("type "):
             if command[5:] in built_ins:
                 print(f"{command.split()[1]} is a shell builtin")
             else:
