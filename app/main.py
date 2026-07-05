@@ -1,10 +1,6 @@
 import sys
 
-built_ins = set({
-    "exit",
-    "type",
-    "echo"
-})
+built_ins = set({"exit", "type", "echo"})
 
 
 def main():
