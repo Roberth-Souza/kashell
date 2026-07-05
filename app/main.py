@@ -9,7 +9,7 @@ built_ins = set({
 
 def main():
     while True:
-        sys.stdout.write("$ ")
+        _ = sys.stdout.write("$ ")
         command = input()
 
         if command.startswith("echo "):
