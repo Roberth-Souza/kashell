@@ -39,21 +39,22 @@ def main():
             print(" ".join(args))
 
         elif cmd_name == ("type"):
-            if check_in_builtins(args[0]):
-                print(f"{args[0]} is a shell builtin")
+            target = args[0]
+            if check_in_builtins(target):
+                print(f"{target} is a shell builtin")
 
             else:
-                find = find_executable(args[0])
+                find = find_executable(target)
                 if find is not None:
-                    print(f"{args[0]} is {find}")
+                    print(f"{target} is {find}")
                 else:
-                    print(f"{args[0]}: not found")
+                    print(f"{target}: not found")
 
-        elif command == "exit":
+        elif cmd_name == "exit":
             break
 
-        elif (exec_path := find_executable(command.split()[0])) is not None:
-            _ = subprocess.run(command.split(), executable=exec_path)
+        elif (exec_path := find_executable(cmd_name)) is not None:
+            _ = subprocess.run(cmd_split, executable=exec_path)
 
         else:
             print(f"{command}: command not found")
