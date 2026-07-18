@@ -1,3 +1,4 @@
+import os
 import sys
 
 built_ins = set({"exit", "type", "echo"})
