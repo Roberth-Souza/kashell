@@ -22,6 +22,18 @@ def check_in_builtins(args: str) -> bool:
     return args in built_ins
 
 
+def handle_type(args: str) -> str:
+
+    if check_in_builtins(args):
+        return f"{args} is a shell builtin"
+
+    else:
+        find = find_executable(args)
+        if find is not None:
+            return f"{args} is {find}"
+        return f"{args}: not found"
+
+
 def main():
 
     while True:
@@ -35,20 +47,12 @@ def main():
         cmd_name = cmd_split[0]
         args = cmd_split[1:]
 
-        if cmd_name == ("echo"):
+        if cmd_name == "echo":
             print(" ".join(args))
 
-        elif cmd_name == ("type"):
-            target = args[0]
-            if check_in_builtins(target):
-                print(f"{target} is a shell builtin")
-
-            else:
-                find = find_executable(target)
-                if find is not None:
-                    print(f"{target} is {find}")
-                else:
-                    print(f"{target}: not found")
+        elif cmd_name == "type":
+            result = handle_type(args[0])
+            print(result)
 
         elif cmd_name == "exit":
             break
