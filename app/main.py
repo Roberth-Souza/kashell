@@ -18,39 +18,42 @@ def find_executable(cmd_name: str) -> str | None:
     return None
 
 
+def check_in_builtins(args: str) -> bool:
+    return args in built_ins
+
+
 def main():
 
     while True:
         _ = sys.stdout.write("$ ")
         command = input()
 
-        if command.startswith("echo "):
-            print(command[5:])
+        if not command or not command.strip():
+            continue
 
-        elif command.startswith("type "):
-            cmd_name = command.split()[1]
+        cmd_split = command.split()
+        cmd_name = cmd_split[0]
+        args = cmd_split[1:]
 
-            if cmd_name in built_ins:
-                print(f"{cmd_name} is a shell builtin")
+        if cmd_name == ("echo"):
+            print(args)
+
+        elif cmd_name == ("type"):
+            if check_in_builtins(args[0]):
+                print(f"{args[0]} is a shell builtin")
 
             else:
-                find = find_executable(cmd_name)
+                find = find_executable(args[0])
                 if find is not None:
-                    print(f"{cmd_name} is {find}")
+                    print(f"{args[0]} is {find}")
                 else:
-                    print(f"{cmd_name}: not found")
+                    print(f"{args[0]}: not found")
 
         elif command == "exit":
             break
 
         elif (exec_path := find_executable(command.split()[0])) is not None:
-            _ = subprocess.run(command.split()[0:], executable=exec_path)
-        # I should put this on a function
-        # clear out my main loop
-        # break this in to as many steps as possible
-        # maybe later separate this on different archives
-        # i wanna sleep so bad :(
-
+            _ = subprocess.run(command.split(), executable=exec_path)
 
         else:
             print(f"{command}: command not found")
