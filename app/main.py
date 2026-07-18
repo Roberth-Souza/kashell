@@ -45,6 +45,11 @@ def main():
 
         elif (exec_path := find_executable(command.split()[0])) is not None:
             _ = subprocess.run(command.split()[0:], executable=exec_path)
+        # I should put this on a function
+        # clear out my main loop
+        # break this in to as many steps as possible
+        # maybe later separate this on different archives
+        # i wanna sleep so bad :(
 
 
         else:
