@@ -13,10 +13,25 @@ def main():
             print(command[5:])
 
         elif command.startswith("type "):
-            if command[5:] in built_ins:
-                print(f"{command.split()[1]} is a shell builtin")
+            cmd_name = command.split()[1]
+
+            if cmd_name in built_ins:
+                print(f'{cmd_name} is a shell builtin')
+
             else:
-                print(f"{command.split()[1]}: not found")
+                find = False
+                path_env = os.environ.get("PATH", "")
+
+                for dir in path_env.split(os.pathsep):
+                    full_path = os.path.join(dir, cmd_name)
+
+                    if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                        print(f'{cmd_name} is {full_path}')
+                        find = True
+                        break
+
+                    if not find:
+                        print(f'{cmd_name}: not found')
 
         elif command == "exit":
             break
