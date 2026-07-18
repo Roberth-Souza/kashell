@@ -30,8 +30,8 @@ def main():
                         find = True
                         break
 
-                    if not find:
-                        print(f'{cmd_name}: not found')
+                if not find:
+                    print(f'{cmd_name}: not found')
 
         elif command == "exit":
             break
