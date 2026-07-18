@@ -44,7 +44,7 @@ def main():
             break
 
         elif (exec_path := find_executable(command.split()[0])) is not None:
-            _ = subprocess.run([exec_path], executable=exec_path)
+            _ = subprocess.run([exec_path] + command.split()[1:])
 
 
         else:
