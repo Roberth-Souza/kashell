@@ -34,6 +34,10 @@ def handle_type(args: str) -> str:
         return f"{args}: not found"
 
 
+def current_directory() -> str:
+    return os.getcwd()
+
+
 def main():
 
     while True:
@@ -53,6 +57,9 @@ def main():
         elif cmd_name == "type":
             result = handle_type(args[0])
             print(result)
+
+        elif cmd_name == "pwd":
+            print(current_directory())
 
         elif cmd_name == "exit":
             break
