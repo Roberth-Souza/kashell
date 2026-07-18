@@ -1,9 +1,12 @@
 import os
 import sys
+import subprocess
 
 built_ins = set({"exit", "type", "echo"})
 
-def check_path(cmd_name: str) -> str | None:
+
+def find_executable(cmd_name: str) -> str | None:
+    """Checks all directories in PATH in search for an executable"""
 
     path_env = os.environ.get("PATH", "")
     for dir in path_env.split(os.pathsep):
@@ -14,7 +17,9 @@ def check_path(cmd_name: str) -> str | None:
 
     return None
 
+
 def main():
+
     while True:
         _ = sys.stdout.write("$ ")
         command = input()
@@ -29,15 +34,18 @@ def main():
                 print(f"{cmd_name} is a shell builtin")
 
             else:
-                find = check_path(cmd_name)
+                find = find_executable(cmd_name)
                 if find is not None:
                     print(f"{cmd_name} is {find}")
                 else:
                     print(f"{cmd_name}: not found")
 
-
         elif command == "exit":
             break
+
+        elif (exec_path := find_executable(command.split()[0])) is not None:
+            _ = subprocess.run([exec_path] + command.split()[1:])
+
 
         else:
             print(f"{command}: command not found")
