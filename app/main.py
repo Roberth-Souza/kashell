@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 
-built_ins = set({"exit", "type", "echo"})
+built_ins = set({"exit", "type", "echo", "pwd"})
 
 
 def find_executable(cmd_name: str) -> str | None:
