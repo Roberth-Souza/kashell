@@ -36,7 +36,7 @@ def main():
         args = cmd_split[1:]
 
         if cmd_name == ("echo"):
-            print(args)
+            print(" ".join(args))
 
         elif cmd_name == ("type"):
             if check_in_builtins(args[0]):
