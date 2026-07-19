@@ -39,6 +39,7 @@ def current_directory() -> str:
 
 
 def change_directory(path: str):
+    """Change to path directory if it exists"""
 
     target = os.path.expanduser(path)
     if os.path.isdir(target):
