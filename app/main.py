@@ -18,20 +18,20 @@ def find_executable(cmd_name: str) -> str | None:
     return None
 
 
-def check_in_builtins(args: str) -> bool:
-    return args in built_ins
+def check_in_builtins(target: str) -> bool:
+    return target in built_ins
 
 
-def handle_type(args: str) -> str:
+def handle_type(target: str) -> str:
 
-    if check_in_builtins(args):
-        return f"{args} is a shell builtin"
+    if check_in_builtins(target):
+        return f"{target} is a shell builtin"
 
     else:
-        find = find_executable(args)
+        find = find_executable(target)
         if find is not None:
-            return f"{args} is {find}"
-        return f"{args}: not found"
+            return f"{target} is {find}"
+        return f"{target}: not found"
 
 
 def current_directory() -> str:
@@ -66,6 +66,9 @@ def main():
             print(" ".join(args))
 
         elif cmd_name == "type":
+            if not args:
+                continue
+
             result = handle_type(args[0])
             print(result)
 
@@ -73,10 +76,14 @@ def main():
             print(current_directory())
 
         elif cmd_name == "cd":
-            try:
-                change_directory(args[0])
-            except ValueError as err:
-                print(err)
+            if not args:
+                change_directory("~")
+
+            else:
+                try:
+                    change_directory(args[0])
+                except ValueError as err:
+                    print(err)
 
         elif cmd_name == "exit":
             break
@@ -85,7 +92,7 @@ def main():
             _ = subprocess.run(cmd_split, executable=exec_path)
 
         else:
-            print(f"{command}: command not found")
+            print(f"{cmd_name}: command not found")
             continue
 
 
