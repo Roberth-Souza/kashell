@@ -40,13 +40,9 @@ def current_directory() -> str:
 
 def change_directory(path: str):
 
-    if os.path.isdir(path):
-        os.chdir(path)
-        return
-
-    elif path == "~":
-        home = os.path.expanduser("~")
-        os.chdir(home)
+    target = os.path.expanduser(path)
+    if os.path.isdir(target):
+        os.chdir(target)
         return
 
     raise ValueError(f"cd: {path}: No such file or directory")
