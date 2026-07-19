@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 
-built_ins = set({"exit", "type", "echo", "pwd"})
+built_ins = set({"exit", "type", "echo", "pwd", "cd"})
 
 
 def find_executable(cmd_name: str) -> str | None:
@@ -38,6 +38,15 @@ def current_directory() -> str:
     return os.getcwd()
 
 
+def change_directory(path: str):
+
+    if os.path.exists(path):
+        os.chdir(path)
+        return
+
+    raise ValueError(f"cd: {path}: No such file or directory")
+
+
 def main():
 
     while True:
@@ -60,6 +69,12 @@ def main():
 
         elif cmd_name == "pwd":
             print(current_directory())
+
+        elif cmd_name == "cd":
+            try:
+                change_directory(args[0])
+            except ValueError as err:
+                print(err)
 
         elif cmd_name == "exit":
             break
