@@ -40,7 +40,7 @@ def current_directory() -> str:
 
 def change_directory(path: str):
 
-    if os.path.exists(path):
+    if os.path.isdir(path):
         os.chdir(path)
         return
 
