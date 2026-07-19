@@ -44,6 +44,10 @@ def change_directory(path: str):
         os.chdir(path)
         return
 
+    elif path == "~":
+        home = os.path.expanduser(path)
+        os.chdir(home)
+
     raise ValueError(f"cd: {path}: No such file or directory")
 
 
