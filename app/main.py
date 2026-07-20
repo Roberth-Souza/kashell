@@ -49,42 +49,37 @@ def change_directory(path: str):
     raise ValueError(f"cd: {path}: No such file or directory")
 
 
+# TODO: split handle_quoting into two functions - one that resolves quote
+# state per character, another that tokenizes on unquoted whitespace.
+# Figure out what info the tokenizer needs from the quote resolver and
+# how to design the interface between them.
 def handle_quoting(command: str) -> list[str]:
     buffer = ""
     result: list[str] = []
     inside_quote = None
 
     for tokken in command:
-        if tokken == "'":  # single quote
-            if inside_quote == 'double':
+        if tokken == "'" or tokken == '"':
+            if inside_quote is None:
+                inside_quote = tokken
+            elif inside_quote != tokken:
                 buffer += tokken
-            elif inside_quote == 'single':
-                inside_quote = None
             else:
-                inside_quote = 'single'
+                inside_quote = None
 
-        if tokken == '"': # double quote
-            if inside_quote == 'single':
+        elif tokken == " ":
+            if inside_quote is not None:
                 buffer += tokken
-            elif inside_quote == 'double':
-                inside_quote = None
-            else:
-                inside_quote = 'double'
 
-        elif inside_quote is None:
-            buffer += tokken
+            elif not buffer:
+                continue
+
+            else:
+                result.append(buffer)
+                buffer = ""
 
         else:
-            if tokken == " ":
-                if not buffer:
-                    continue
-
-                else:
-                    result.append(buffer)
-                    buffer = ""
-
-            else:
-                buffer += tokken
+            buffer += tokken
 
     if not buffer:
         return result
