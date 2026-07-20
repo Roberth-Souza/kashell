@@ -49,16 +49,29 @@ def change_directory(path: str):
     raise ValueError(f"cd: {path}: No such file or directory")
 
 
-def tokenizer(command: str) -> list[str]:
+def handle_quoting(command: str) -> list[str]:
     buffer = ""
     result: list[str] = []
-    inside_quote = False
+    inside_quote = None
 
     for tokken in command:
         if tokken == "'":  # single quote
-            inside_quote = not inside_quote
+            if inside_quote == 'double':
+                buffer += tokken
+            elif inside_quote == 'single':
+                inside_quote = None
+            else:
+                inside_quote = 'single'
 
-        elif inside_quote:
+        if tokken == '"': # double quote
+            if inside_quote == 'single':
+                buffer += tokken
+            elif inside_quote == 'double':
+                inside_quote = None
+            else:
+                inside_quote = 'double'
+
+        elif inside_quote is None:
             buffer += tokken
 
         else:
@@ -89,7 +102,7 @@ def main():
         if not command or not command.strip():
             continue
 
-        cmd_split = tokenizer(command)
+        cmd_split = handle_quoting(command)
         cmd_name = cmd_split[0]
         args = cmd_split[1:]
 
