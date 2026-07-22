@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 
-built_ins = set({"exit", "type", "echo", "pwd", "cd"})
+built_ins = {"exit", "type", "echo", "pwd", "cd"}
 
 
 def find_executable(cmd_name: str) -> str | None:
@@ -49,43 +49,38 @@ def change_directory(path: str):
     raise ValueError(f"cd: {path}: No such file or directory")
 
 
-# TODO: split handle_quoting into two functions - one that resolves quote
-# state per character, another that tokenizes on unquoted whitespace.
-# Figure out what info the tokenizer needs from the quote resolver and
-# how to design the interface between them.
-def handle_quoting(command: str) -> list[str]:
-    buffer = ""
-    result: list[str] = []
-    inside_quote = None
+def classify_character(char: str, state: str | None) -> tuple[bool, str | None]:
+    """Return if it should keep it or not, and the new quoting state"""
+    if char in ("'", '"'):
+        if state is None:  # Found a opening quote
+            return (False, char)
+        elif char == state:  # Closing quote
+            return (False, None)
+        return (True, state)  # Another quote type inside quoted
+    return (True, state)  # Not special character
 
-    for tokken in command:
-        if tokken == "'" or tokken == '"':
-            if inside_quote is None:
-                inside_quote = tokken
-            elif inside_quote != tokken:
-                buffer += tokken
-            else:
-                inside_quote = None
 
-        elif tokken == " ":
-            if inside_quote is not None:
-                buffer += tokken
+def tokenizer(command: str) -> list[str]:
+    state = None
+    buffer: list[str] = []
+    tokens: list[str] = []
+    for char in command:
+        keep, state = classify_character(char, state)
 
-            elif not buffer:
-                continue
+        if not keep:
+            continue
 
-            else:
-                result.append(buffer)
-                buffer = ""
-
+        elif state is None and char == " ":
+            if buffer:
+                tokens.append("".join(buffer))
+                buffer = []
+            continue
         else:
-            buffer += tokken
+            buffer.append(char)
 
-    if not buffer:
-        return result
-
-    result.append(buffer)
-    return result
+    if buffer:
+        tokens.append("".join(buffer))
+    return tokens
 
 
 def main():
@@ -97,7 +92,7 @@ def main():
         if not command or not command.strip():
             continue
 
-        cmd_split = handle_quoting(command)
+        cmd_split = tokenizer(command)
         cmd_name = cmd_split[0]
         args = cmd_split[1:]
 
