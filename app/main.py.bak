@@ -1,17 +1,8 @@
 import os
 import sys
 import subprocess
-from enum import Enum
 
 built_ins = {"exit", "type", "echo", "pwd", "cd"}
-
-
-class Verdict(Enum):
-    """What the tokenizer should do with the current character"""
-
-    ACCUMULATE = "accumulate"
-    FLUSH = "flush"
-    SKIP = "skip"
 
 
 def find_executable(cmd_name: str) -> str | None:
@@ -58,53 +49,44 @@ def change_directory(path: str):
     raise ValueError(f"cd: {path}: No such file or directory")
 
 
-def classify_character(
-    char: str, quote_type: str | None, escaping: bool
-) -> tuple[Verdict, str | None, bool]:
-    """Return the action for this char and the updated state"""
+def classify_character(char: str, state: str | None) -> tuple[bool, str | None]:
+    """Return if it should keep it or not, and the new quoting state"""
+    if char == "\\" and state is None:
+        return (False, char)  # Found a backslah outside quoting
 
-    if char == "\\" and (not escaping and quote_type is None):
-        return (Verdict.SKIP, quote_type, True)
-
-    elif escaping:
-        return (Verdict.ACCUMULATE, quote_type, False)
+    elif state == "\\":
+        return (True, "non_special")
 
     elif char in ("'", '"'):
-        if quote_type is None:  # Opening quote
-            return (Verdict.SKIP, char, False)
-        elif char == quote_type:  # Closing quote
-            return (Verdict.SKIP, None, False)
-        return (
-            Verdict.ACCUMULATE,
-            quote_type,
-            False,
-        )  # Another quote type inside quoted
-
-    elif char == " " and quote_type is None:
-        return (Verdict.FLUSH, quote_type, False)
-
-    return (Verdict.ACCUMULATE, quote_type, False)
+        if state is None:  # Found a opening quote
+            return (False, char)
+        elif char == state:  # Closing quote
+            return (False, None)
+        return (True, state)  # Another quote type inside quoted
+    return (True, state)  # Not special character
 
 
 def tokenizer(command: str) -> list[str]:
-    quote_type: str | None = None
-    escaping = False
+    state = None
     buffer: list[str] = []
     tokens: list[str] = []
     for char in command:
-        verdict, quote_type, escaping = classify_character(char, quote_type, escaping)
+        keep, state = classify_character(char, state)
 
-        if verdict is Verdict.SKIP:
+        if not keep:
             continue
 
-        elif verdict is Verdict.ACCUMULATE:
+        elif state == "non_special":
             buffer.append(char)
+            state = None
 
-        else:
+        elif state is None and char == " ":
             if buffer:
                 tokens.append("".join(buffer))
                 buffer = []
             continue
+        else:
+            buffer.append(char)
 
     if buffer:
         tokens.append("".join(buffer))
