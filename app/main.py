@@ -5,6 +5,8 @@ from enum import Enum
 
 built_ins = {"exit", "type", "echo", "pwd", "cd"}
 
+DOUBLE_QUOTE_ESCAPABLE = {"$", "`", '"', "\\", "\n"}
+
 
 class Verdict(Enum):
     """What the tokenizer should do with the current character"""
@@ -60,30 +62,37 @@ def change_directory(path: str):
 
 def classify_character(
     char: str, quote_type: str | None, escaping: bool
-) -> tuple[Verdict, str | None, bool]:
-    """Return the action for this char and the updated state"""
+) -> tuple[Verdict, str, str | None, bool]:
+    """Return the action, the text to emit, and the updated state"""
 
-    if char == "\\" and (not escaping and quote_type is None):
-        return (Verdict.SKIP, quote_type, True)
+    if escaping:
+        if quote_type == '"' and char not in DOUBLE_QUOTE_ESCAPABLE:
+            return (Verdict.ACCUMULATE, "\\" + char, quote_type, False)
 
-    elif escaping:
-        return (Verdict.ACCUMULATE, quote_type, False)
+        # We are escaping, but not inside double quotes or the char is double_quote_escapable
+        return (Verdict.ACCUMULATE, char, quote_type, False)
+
+    # At this point we are no longer escaping
+    # So if we find a backslash, we check if quote_type is single quote
+    # Because backslashes are treated literally inside single quotes
+
+    elif char == "\\" and quote_type != "'":
+        # backslash when quotes are None or double
+        return (Verdict.SKIP, "", quote_type, True)
 
     elif char in ("'", '"'):
         if quote_type is None:  # Opening quote
-            return (Verdict.SKIP, char, False)
+            return (Verdict.SKIP, "", char, False)
         elif char == quote_type:  # Closing quote
-            return (Verdict.SKIP, None, False)
-        return (
-            Verdict.ACCUMULATE,
-            quote_type,
-            False,
-        )  # Another quote type inside quoted
+            return (Verdict.SKIP, "", None, False)
+
+        # else is another quote type inside quoted:
+        return (Verdict.ACCUMULATE, char, quote_type, False)
 
     elif char == " " and quote_type is None:
-        return (Verdict.FLUSH, quote_type, False)
+        return (Verdict.FLUSH, "", quote_type, False)
 
-    return (Verdict.ACCUMULATE, quote_type, False)
+    return (Verdict.ACCUMULATE, char, quote_type, False)
 
 
 def tokenizer(command: str) -> list[str]:
@@ -91,14 +100,17 @@ def tokenizer(command: str) -> list[str]:
     escaping = False
     buffer: list[str] = []
     tokens: list[str] = []
+
     for char in command:
-        verdict, quote_type, escaping = classify_character(char, quote_type, escaping)
+        verdict, text, quote_type, escaping = classify_character(
+            char, quote_type, escaping
+        )
 
         if verdict is Verdict.SKIP:
             continue
 
         elif verdict is Verdict.ACCUMULATE:
-            buffer.append(char)
+            buffer.append(text)
 
         else:
             if buffer:
