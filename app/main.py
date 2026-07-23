@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 from enum import Enum
+from typing import NamedTuple
 
 built_ins = {"exit", "type", "echo", "pwd", "cd"}
 
@@ -16,12 +17,19 @@ class Verdict(Enum):
     SKIP = "skip"
 
 
+class Result(NamedTuple):
+    verdict: Verdict
+    quote_type: str | None = None
+    escaping: bool = False
+    text: str = ""
+
+
 def find_executable(cmd_name: str) -> str | None:
     """Checks all directories in PATH in search for an executable"""
 
     path_env = os.environ.get("PATH", "")
-    for dir in path_env.split(os.pathsep):
-        full_path = os.path.join(dir, cmd_name)
+    for directory in path_env.split(os.pathsep):
+        full_path = os.path.join(directory, cmd_name)
 
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             return full_path
@@ -60,17 +68,22 @@ def change_directory(path: str):
     raise ValueError(f"cd: {path}: No such file or directory")
 
 
-def classify_character(
-    char: str, quote_type: str | None, escaping: bool
-) -> tuple[Verdict, str, str | None, bool]:
+def classify_character(char: str, quote_type: str | None, escaping: bool) -> Result:
     """Return the action, the text to emit, and the updated state"""
 
     if escaping:
         if quote_type == '"' and char not in DOUBLE_QUOTE_ESCAPABLE:
-            return (Verdict.ACCUMULATE, "\\" + char, quote_type, False)
+            return Result(
+                Verdict.ACCUMULATE,
+                quote_type=quote_type,
+                escaping=False,
+                text="\\" + char,
+            )
 
         # We are escaping, but not inside double quotes or the char is double_quote_escapable
-        return (Verdict.ACCUMULATE, char, quote_type, False)
+        return Result(
+            Verdict.ACCUMULATE, quote_type=quote_type, escaping=False, text=char
+        )
 
     # At this point we are no longer escaping
     # So if we find a backslash, we check if quote_type is single quote
@@ -78,21 +91,23 @@ def classify_character(
 
     elif char == "\\" and quote_type != "'":
         # backslash when quotes are None or double
-        return (Verdict.SKIP, "", quote_type, True)
+        return Result(Verdict.SKIP, quote_type=quote_type, escaping=True)
 
     elif char in ("'", '"'):
         if quote_type is None:  # Opening quote
-            return (Verdict.SKIP, "", char, False)
+            return Result(Verdict.SKIP, quote_type=char, escaping=False)
         elif char == quote_type:  # Closing quote
-            return (Verdict.SKIP, "", None, False)
+            return Result(Verdict.SKIP, quote_type=None, escaping=False)
 
         # else is another quote type inside quoted:
-        return (Verdict.ACCUMULATE, char, quote_type, False)
+        return Result(
+            Verdict.ACCUMULATE, quote_type=quote_type, escaping=False, text=char
+        )
 
     elif char == " " and quote_type is None:
-        return (Verdict.FLUSH, "", quote_type, False)
+        return Result(Verdict.FLUSH, quote_type=quote_type, escaping=False)
 
-    return (Verdict.ACCUMULATE, char, quote_type, False)
+    return Result(Verdict.ACCUMULATE, quote_type=quote_type, escaping=False, text=char)
 
 
 def tokenizer(command: str) -> list[str]:
@@ -102,7 +117,7 @@ def tokenizer(command: str) -> list[str]:
     tokens: list[str] = []
 
     for char in command:
-        verdict, text, quote_type, escaping = classify_character(
+        verdict, quote_type, escaping, text = classify_character(
             char, quote_type, escaping
         )
 
