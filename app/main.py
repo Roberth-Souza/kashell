@@ -24,6 +24,14 @@ class Result(NamedTuple):
     text: str = ""
 
 
+class Tokenizer_State(NamedTuple):
+    buffer: list[str] | None = None
+    quote_type: str | None = None
+    escaping: bool = False
+    tokens: list[str] | None = None
+    unfinished: bool = False
+
+
 def find_executable(cmd_name: str) -> str | None:
     """Checks all directories in PATH in search for an executable"""
 
@@ -71,6 +79,7 @@ def change_directory(path: str):
 def classify_character(char: str, quote_type: str | None, escaping: bool) -> Result:
     """Return the action, the text to emit, and the updated state"""
 
+    # This only runs on the next char after founding a backslash
     if escaping:
         if quote_type == '"' and char not in DOUBLE_QUOTE_ESCAPABLE:
             return Result(
@@ -110,11 +119,11 @@ def classify_character(char: str, quote_type: str | None, escaping: bool) -> Res
     return Result(Verdict.ACCUMULATE, quote_type=quote_type, escaping=False, text=char)
 
 
-def tokenizer(command: str) -> list[str]:
-    quote_type: str | None = None
-    escaping = False
-    buffer: list[str] = []
-    tokens: list[str] = []
+def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
+    quote_type = state.quote_type
+    escaping = state.escaping
+    buffer = state.buffer or []  # If state.buffer is None, the buffer resets
+    tokens = state.tokens or []  # Same here but for Tokens
 
     for char in command:
         verdict, quote_type, escaping, text = classify_character(
@@ -133,21 +142,47 @@ def tokenizer(command: str) -> list[str]:
                 buffer = []
             continue
 
+    if escaping:
+        return Tokenizer_State(
+            buffer=buffer,
+            tokens=tokens,
+            quote_type=quote_type,
+            escaping=escaping,
+            unfinished=True,
+        )
+
     if buffer:
         tokens.append("".join(buffer))
-    return tokens
+    return Tokenizer_State(
+        buffer=buffer,
+        tokens=tokens,
+        quote_type=quote_type,
+        escaping=escaping,
+        unfinished=False,
+    )
 
 
 def main():
 
     while True:
+        state = Tokenizer_State()
         _ = sys.stdout.write("$ ")
         command = input()
 
         if not command or not command.strip():
             continue
 
-        cmd_split = tokenizer(command)
+        state = tokenizer(command, state)
+        while state.unfinished:
+            print("> ")
+            command = input()
+            state = tokenizer(command, state)
+
+        cmd_split = state.tokens
+
+        if not cmd_split:
+            continue
+
         cmd_name = cmd_split[0]
         args = cmd_split[1:]
 
