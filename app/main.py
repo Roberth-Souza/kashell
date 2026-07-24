@@ -26,6 +26,7 @@ class Result(NamedTuple):
 
 class Tokenizer_State(NamedTuple):
     buffer: list[str] | None = None
+    saw_quote: bool = False
     quote_type: str | None = None
     escaping: bool = False
     tokens: list[str] | None = None
@@ -124,11 +125,15 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
     escaping = state.escaping
     buffer = state.buffer or []  # If state.buffer is None, the buffer resets
     tokens = state.tokens or []  # Same here but for Tokens
+    saw_quote = state.saw_quote
 
     for char in command:
         verdict, quote_type, escaping, text = classify_character(
             char, quote_type, escaping
         )
+
+        if quote_type:
+            saw_quote = True
 
         if verdict is Verdict.SKIP:
             continue
@@ -137,9 +142,10 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
             buffer.append(text)
 
         else:
-            if buffer:
+            if buffer or saw_quote:
                 tokens.append("".join(buffer))
                 buffer = []
+                saw_quote = False
             continue
 
     if escaping:
@@ -148,11 +154,13 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
             tokens=tokens,
             quote_type=quote_type,
             escaping=escaping,
+            saw_quote=saw_quote,
             unfinished=True,
         )
 
-    if buffer:
+    if buffer or saw_quote:
         tokens.append("".join(buffer))
+
     return Tokenizer_State(
         buffer=buffer,
         tokens=tokens,
