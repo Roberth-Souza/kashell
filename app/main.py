@@ -1,3 +1,21 @@
+"""kashell — a POSIX-ish shell written from scratch, with no dependencies.
+
+Turning an input line into arguments is split in two layers:
+
+1. `classify_character` is pure. Given one character and the current lexer
+   state, it decides what that character means and returns the state that
+   follows it. It owns no buffer and appends to nothing.
+2. `tokenizer` owns the mutable side: the buffer of the token being built and
+   the list of finished tokens. It only applies the verdicts it receives.
+
+Keeping the decision stateless is what keeps the quoting rules readable —
+each rule is a single branch of one function instead of a flag read from
+three places.
+"""
+
+# TODO: move the lexer (Verdict, Result, Tokenizer_State, classify_character,
+# tokenizer) into its own module and keep main.py for the REPL + builtins
+
 import os
 import sys
 import subprocess
@@ -12,12 +30,18 @@ DOUBLE_QUOTE_ESCAPABLE = {"$", "`", '"', "\\", "\n"}
 class Verdict(Enum):
     """What the tokenizer should do with the current character"""
 
-    ACCUMULATE = "accumulate"
-    FLUSH = "flush"
-    SKIP = "skip"
+    ACCUMULATE = "accumulate"  # append Result.text to the current buffer
+    FLUSH = "flush"  # the token ends here; emit the buffer
+    SKIP = "skip"  # syntax only (a quote or a backslash); emit nothing
 
 
 class Result(NamedTuple):
+    """A verdict for one character, plus the lexer state that follows it.
+
+    `text` is what should be accumulated: usually the character itself, but a
+    backslash that is not escapable inside double quotes keeps both characters.
+    """
+
     verdict: Verdict
     quote_type: str | None = None
     escaping: bool = False
@@ -25,6 +49,17 @@ class Result(NamedTuple):
 
 
 class Tokenizer_State(NamedTuple):
+    """Everything needed to resume tokenizing on the next input line.
+
+    buffer: characters of the token currently being built
+    saw_quote: a quote was opened while building this token, so it must be
+        emitted even when empty (`echo ""` yields one empty argument)
+    quote_type: None outside quotes, otherwise the opening quote character
+    escaping: the previous character was a backslash that escapes this one
+    tokens: the tokens already finished
+    unfinished: the line ended mid-escape, so the caller must read one more
+    """
+
     buffer: list[str] | None = None
     saw_quote: bool = False
     quote_type: str | None = None
@@ -78,9 +113,20 @@ def change_directory(path: str):
 
 
 def classify_character(char: str, quote_type: str | None, escaping: bool) -> Result:
-    """Return the action, the text to emit, and the updated state"""
+    """Return the action, the text to emit, and the updated state.
 
-    # This only runs on the next char after founding a backslash
+    The rules, in the order they are checked:
+
+    - escaping: the character is literal. Inside double quotes only the
+      characters in DOUBLE_QUOTE_ESCAPABLE can be escaped, so any other one
+      keeps the backslash that preceded it.
+    - a backslash outside single quotes: consumed, and turns escaping on.
+    - a quote: opens, closes, or — when it is the other kind — is literal.
+    - an unquoted space: ends the current token.
+    - anything else: literal.
+    """
+
+    # This only runs on the character right after a backslash
     if escaping:
         if quote_type == '"' and char not in DOUBLE_QUOTE_ESCAPABLE:
             return Result(
@@ -121,6 +167,13 @@ def classify_character(char: str, quote_type: str | None, escaping: bool) -> Res
 
 
 def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
+    """Split one input line into tokens, resuming from `state`.
+
+    A fresh Tokenizer_State() starts a new command. Feeding the returned state
+    back in continues a line that ended on a trailing backslash, which is how
+    line continuation works: the buffer survives across calls.
+    """
+
     quote_type = state.quote_type
     escaping = state.escaping
     buffer = state.buffer or []  # If state.buffer is None, the buffer resets
@@ -132,6 +185,7 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
             char, quote_type, escaping
         )
 
+        # Being inside quotes marks the token as quoted, so `""` still emits one
         if quote_type:
             saw_quote = True
 
@@ -142,12 +196,14 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
             buffer.append(text)
 
         else:
+            # FLUSH: an empty quoted token counts, a run of spaces does not
             if buffer or saw_quote:
                 tokens.append("".join(buffer))
                 buffer = []
                 saw_quote = False
             continue
 
+    # The line ended on a backslash: keep the buffer and ask for another line
     if escaping:
         return Tokenizer_State(
             buffer=buffer,
@@ -158,6 +214,7 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
             unfinished=True,
         )
 
+    # End of line closes the last token
     if buffer or saw_quote:
         tokens.append("".join(buffer))
 
@@ -171,8 +228,10 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
 
 
 def main():
+    """The REPL: read a line, tokenize it, dispatch to a builtin or to PATH."""
 
     while True:
+        # TODO: extract line reading into receive_command() to drop the nested whiles
         state = Tokenizer_State()
         _ = sys.stdout.write("$ ")
         command = input()
