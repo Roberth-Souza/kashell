@@ -124,9 +124,9 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
                 saw_quote = False
             continue
 
-    # The line ended on a backslash: keep the buffer and the flags untouched so
-    # the next line resumes this same token — this is line continuation
-    if escaping:
+    # The line ended mid-token — on a backslash or inside an open quote. Keep the
+    # buffer and the flags untouched so the next line resumes this same token
+    if escaping or quote_type is not None:
         return TokenizerState(
             buffer=buffer,
             tokens=tokens,
@@ -140,8 +140,9 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
     if buffer or saw_quote:
         tokens.append("".join(buffer))
 
+    # The token was emitted above, so the buffer must not travel with the state
     return TokenizerState(
-        buffer=buffer,
+        buffer=[],
         tokens=tokens,
         quote_type=quote_type,
         escaping=escaping,
