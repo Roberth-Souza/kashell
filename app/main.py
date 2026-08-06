@@ -6,13 +6,13 @@ import sys
 from app.handlers import built_ins
 from app.path import find_executable
 from app.tokenizer import (
-    Tokenizer_State,
+    TokenizerState,
     tokenizer,
 )
 
 
 def receive_command():
-    state = Tokenizer_State()
+    state = TokenizerState()
     _ = sys.stdout.write("$ ")
     command = input()
 

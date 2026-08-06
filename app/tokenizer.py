@@ -26,7 +26,7 @@ class Result(NamedTuple):
     text: str = ""
 
 
-class Tokenizer_State(NamedTuple):
+class TokenizerState(NamedTuple):
     """Everything needed to resume tokenizing on the next input line"""
 
     buffer: list[str] | None = None
@@ -90,10 +90,10 @@ def classify_character(char: str, quote_type: str | None, escaping: bool) -> Res
     return Result(Verdict.ACCUMULATE, quote_type=quote_type, escaping=False, text=char)
 
 
-def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
+def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
     """Split one input line into tokens, resuming from `state`"""
 
-    # A fresh Tokenizer_State() starts a new command; feeding back the state
+    # A fresh TokenizerState() starts a new command; feeding back the state
     # this function returns continues the previous one
     quote_type = state.quote_type
     escaping = state.escaping
@@ -127,7 +127,7 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
     # The line ended on a backslash: keep the buffer and the flags untouched so
     # the next line resumes this same token — this is line continuation
     if escaping:
-        return Tokenizer_State(
+        return TokenizerState(
             buffer=buffer,
             tokens=tokens,
             quote_type=quote_type,
@@ -140,7 +140,7 @@ def tokenizer(command: str, state: Tokenizer_State) -> Tokenizer_State:
     if buffer or saw_quote:
         tokens.append("".join(buffer))
 
-    return Tokenizer_State(
+    return TokenizerState(
         buffer=buffer,
         tokens=tokens,
         quote_type=quote_type,
