@@ -60,8 +60,8 @@ def handle_cd(args: list[str]):
             print(err)
 
 
-def handle_exit(_args: list[str]):
-    sys.exit()
+def handle_exit(args: list[str]):
+    sys.exit(int(args[0]) if args else 0)
 
 
 built_ins = {
