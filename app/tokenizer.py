@@ -12,6 +12,7 @@ class Verdict(Enum):
     ACCUMULATE = "accumulate"
     FLUSH = "flush"  # the token ends here; emit the buffer
     SKIP = "skip"
+    EMIT_OPERATOR = "emit_operator"
 
 
 class Result(NamedTuple):
@@ -26,6 +27,11 @@ class Result(NamedTuple):
     text: str = ""
 
 
+class Token(NamedTuple):
+    text: str
+    operator: bool = False
+
+
 class TokenizerState(NamedTuple):
     """Everything needed to resume tokenizing on the next input line"""
 
@@ -37,7 +43,7 @@ class TokenizerState(NamedTuple):
 
     quote_type: str | None = None
     escaping: bool = False
-    tokens: list[str] | None = None
+    tokens: list[Token] | None = None
 
     # The line ended mid-escape, so the caller must read one more
     unfinished: bool = False
@@ -82,9 +88,15 @@ def classify_character(char: str, quote_type: str | None, escaping: bool) -> Res
             Verdict.ACCUMULATE, quote_type=quote_type, escaping=False, text=char
         )
 
-    # Unquoted space: the only character that ends a token
+    # Unquoted space splits token:
     elif char == " " and quote_type is None:
         return Result(Verdict.FLUSH, quote_type=quote_type, escaping=False)
+
+    # unquoted ">" redirects the output and emits the char
+    elif char == ">" and quote_type is None:
+        return Result(
+            Verdict.EMIT_OPERATOR, quote_type=quote_type, escaping=False, text=char
+        )
 
     # Anything else is literal text
     return Result(Verdict.ACCUMULATE, quote_type=quote_type, escaping=False, text=char)
@@ -116,15 +128,28 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
         elif verdict is Verdict.ACCUMULATE:
             buffer.append(text)
 
+        elif verdict is Verdict.EMIT_OPERATOR:
+            if buffer == ["1"] and not saw_quote:
+                operator = "1" + text
+                buffer = []
+            else:
+                operator = text
+                if buffer or saw_quote:
+                    tokens.append(Token("".join(buffer)))
+                    buffer = []
+
+            saw_quote = False
+            tokens.append(Token(operator, True))
+
         else:
             # FLUSH: an empty quoted token counts, a run of spaces does not
             if buffer or saw_quote:
-                tokens.append("".join(buffer))
+                tokens.append(Token("".join(buffer)))
                 buffer = []
                 saw_quote = False
             continue
 
-    # The line ended mid-token — on a backslash or inside an open quote. Keep the
+    # The line ended mid-token , on a backslash or inside an open quote. Keep the
     # buffer and the flags untouched so the next line resumes this same token
     if escaping or quote_type is not None:
         return TokenizerState(
@@ -138,7 +163,7 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
 
     # End of line closes the last token
     if buffer or saw_quote:
-        tokens.append("".join(buffer))
+        tokens.append(Token("".join(buffer)))
 
     # The token was emitted above, so the buffer must not travel with the state
     return TokenizerState(

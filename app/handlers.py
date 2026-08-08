@@ -2,6 +2,7 @@
 
 import os
 import sys
+from typing import TextIO
 
 from app.path import find_executable
 
@@ -10,20 +11,21 @@ def check_in_builtins(target: str) -> bool:
     return target in built_ins
 
 
-def handle_type(args: list[str]) -> None:
+def handle_type(args: list[str], sink: TextIO) -> None:
 
     if not args:
         return
 
     if check_in_builtins(args[0]):
-        print(f"{args[0]} is a shell builtin")
+        print(f"{args[0]} is a shell builtin", file=sink)
 
     else:
         find = find_executable(args[0])
         if find is not None:
-            print(f"{args[0]} is {find}")
+            print(f"{args[0]} is {find}", file=sink)
         else:
-            print(f"{args[0]}: not found")
+            # Errors go to stderr, so `> file` never captures them
+            print(f"{args[0]}: not found", file=sys.stderr)
 
 
 def current_directory() -> str:
@@ -41,15 +43,15 @@ def change_directory(path: str):
     raise ValueError(f"cd: {path}: No such file or directory")
 
 
-def handle_echo(args: list[str]):
-    print(" ".join(args))
+def handle_echo(args: list[str], sink: TextIO):
+    print(" ".join(args), file=sink)
 
 
-def handle_pwd(_args: list[str]):
-    print(current_directory())
+def handle_pwd(_args: list[str], sink: TextIO):
+    print(current_directory(), file=sink)
 
 
-def handle_cd(args: list[str]):
+def handle_cd(args: list[str], _sink: TextIO):
     if not args:
         change_directory("~")
 
@@ -57,10 +59,10 @@ def handle_cd(args: list[str]):
         try:
             change_directory(args[0])
         except ValueError as err:
-            print(err)
+            print(err, file=sys.stderr)
 
 
-def handle_exit(args: list[str]):
+def handle_exit(args: list[str], _sink: TextIO):
     sys.exit(int(args[0]) if args else 0)
 
 
