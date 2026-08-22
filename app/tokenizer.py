@@ -28,6 +28,8 @@ class Result(NamedTuple):
 
 
 class Token(NamedTuple):
+    """This is the output of the tokenizer, a single token with its text and whether it is an operator"""
+
     text: str
     operator: bool = False
 
@@ -129,8 +131,8 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
             buffer.append(text)
 
         elif verdict is Verdict.EMIT_OPERATOR:
-            if buffer == ["1"] and not saw_quote:
-                operator = "1" + text
+            if (buffer == ["1"] or buffer == ["2"]) and not saw_quote:
+                operator = buffer[0] + text
                 buffer = []
             else:
                 operator = text
