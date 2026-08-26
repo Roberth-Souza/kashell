@@ -14,6 +14,8 @@ from app.tokenizer import (
 
 
 class Redirect(NamedTuple):
+    """target: the file to redirect to, fd: 1 for stdout, 2 for stderr"""
+
     target: str | None
     fd: int = 1
 
@@ -43,7 +45,7 @@ def split_redirect(tokens: list[Token]) -> tuple[list[str], Redirect]:
     """
 
     words: list[str] = []
-    redirect = Redirect(None, 0)
+    redirect = Redirect(None, 1)
 
     # The operator marks the *next* token as the file, same idea as `escaping`
     # marking the next character in the tokenizer
@@ -68,8 +70,8 @@ def split_redirect(tokens: list[Token]) -> tuple[list[str], Redirect]:
 def run_command(cmd_split: list[str], out: TextIO, err: TextIO) -> None:
     """Dispatch one command to a builtin or to an executable on PATH.
 
-    Everything it prints goes to `sink`, which is either `sys.stdout` or the
-    file opened for a redirection.
+    Everything it prints goes to either out or err ( stdout / stderr )
+    so that we can redirect it to a file if the user requested it.
     """
 
     cmd_name = cmd_split[0]
@@ -110,9 +112,6 @@ def main():
             if cmd_split:
                 run_command(cmd_split, sys.stdout, sys.stderr)
             continue
-
-        # Write mode truncates the file even when there is no command to run
-        # Here redirect target is True, so we need to change where to write the output
 
         with open(redirect_target.target, "w") as sink:
             out, err = sys.stdout, sys.stderr
