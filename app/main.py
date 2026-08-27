@@ -2,7 +2,7 @@
 
 import subprocess
 import sys
-from typing import NamedTuple, TextIO
+from typing import Literal, NamedTuple, TextIO
 
 from app.handlers import built_ins
 from app.path import find_executable
@@ -18,6 +18,7 @@ class Redirect(NamedTuple):
 
     target: str | None
     fd: int = 1
+    mode: Literal["w", "a"] = "w"  # Can be "a" for append
 
 
 def receive_command():
@@ -45,22 +46,30 @@ def split_redirect(tokens: list[Token]) -> tuple[list[str], Redirect]:
     """
 
     words: list[str] = []
-    redirect = Redirect(None, 1)
+    redirect = Redirect(None, 1, "w")
 
     # The operator marks the *next* token as the file, same idea as `escaping`
     # marking the next character in the tokenizer
     expecting_target = 0
+    append_write = "w"
 
     for token in tokens:
         if expecting_target:
-            redirect = Redirect(target=token.text, fd=expecting_target)
+            redirect = Redirect(
+                target=token.text, fd=expecting_target, mode=append_write
+            )
             expecting_target = 0
+            append_write = "w"
 
         elif token.operator:
-            if token.text == "2>":
+            if token.text[0] == "2":
                 expecting_target = 2
+                if token.text == "2>>":
+                    append_write = "a"
             else:
                 expecting_target = 1
+                if token.text == "1>>" or token.text == ">>":
+                    append_write = "a"
         else:
             words.append(token.text)
 
@@ -113,7 +122,7 @@ def main():
                 run_command(cmd_split, sys.stdout, sys.stderr)
             continue
 
-        with open(redirect_target.target, "w") as sink:
+        with open(redirect_target.target, redirect_target.mode) as sink:
             out, err = sys.stdout, sys.stderr
 
             if redirect_target.fd == 2:

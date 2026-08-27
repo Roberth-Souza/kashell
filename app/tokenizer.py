@@ -38,6 +38,7 @@ class TokenizerState(NamedTuple):
     """Everything needed to resume tokenizing on the next input line"""
 
     buffer: list[str] | None = None
+    op_buffer: list[str] | None = None
 
     # A quote was opened while building this token, so it is emitted even when
     # empty (`echo ""` yields one empty argument)
@@ -49,6 +50,10 @@ class TokenizerState(NamedTuple):
 
     # The line ended mid-escape, so the caller must read one more
     unfinished: bool = False
+
+
+# TODO: classify_character is too complex, maybe i can break her in to steps with something like
+# handle_quoting()
 
 
 def classify_character(char: str, quote_type: str | None, escaping: bool) -> Result:
@@ -112,6 +117,7 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
     quote_type = state.quote_type
     escaping = state.escaping
     buffer = state.buffer or []  # If state.buffer is None, the buffer resets
+    op_buffer = state.op_buffer or []
     tokens = state.tokens or []  # Same here but for Tokens
     saw_quote = state.saw_quote
 
@@ -119,6 +125,12 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
         verdict, quote_type, escaping, text = classify_character(
             char, quote_type, escaping
         )
+
+        if verdict is not Verdict.EMIT_OPERATOR and op_buffer:
+            operator = "".join(op_buffer)
+            saw_quote = False
+            tokens.append(Token(operator, True))
+            op_buffer = []
 
         # Being inside quotes marks the token as quoted, so `""` still emits one
         if quote_type:
@@ -132,16 +144,13 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
 
         elif verdict is Verdict.EMIT_OPERATOR:
             if (buffer == ["1"] or buffer == ["2"]) and not saw_quote:
-                operator = buffer[0] + text
+                op_buffer.append(buffer[0] + text)
                 buffer = []
             else:
-                operator = text
+                op_buffer.append(text)
                 if buffer or saw_quote:
                     tokens.append(Token("".join(buffer)))
                     buffer = []
-
-            saw_quote = False
-            tokens.append(Token(operator, True))
 
         else:
             # FLUSH: an empty quoted token counts, a run of spaces does not
@@ -166,6 +175,10 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
     # End of line closes the last token
     if buffer or saw_quote:
         tokens.append(Token("".join(buffer)))
+
+    # A line ending on the operator itself, as in `echo hi >`
+    if op_buffer:
+        tokens.append(Token("".join(op_buffer), True))
 
     # The token was emitted above, so the buffer must not travel with the state
     return TokenizerState(
