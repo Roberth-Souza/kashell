@@ -38,6 +38,11 @@ class TokenizerState(NamedTuple):
     """Everything needed to resume tokenizing on the next input line"""
 
     buffer: list[str] | None = None
+
+    # Since the operator could be more than one character
+    # We need to accumulate it in a separate buffer
+    # So that it does not flush the token buffer when it is a >>
+
     op_buffer: list[str] | None = None
 
     # A quote was opened while building this token, so it is emitted even when
@@ -117,8 +122,8 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
     quote_type = state.quote_type
     escaping = state.escaping
     buffer = state.buffer or []  # If state.buffer is None, the buffer resets
-    op_buffer = state.op_buffer or []
     tokens = state.tokens or []  # Same here but for Tokens
+    op_buffer = state.op_buffer or []
     saw_quote = state.saw_quote
 
     for char in command:
@@ -126,6 +131,8 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
             char, quote_type, escaping
         )
 
+        # The operator is only emitted here: it takes the next character to
+        # know it is finished, since `>` may still grow into `>>`
         if verdict is not Verdict.EMIT_OPERATOR and op_buffer:
             operator = "".join(op_buffer)
             saw_quote = False
@@ -143,6 +150,10 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
             buffer.append(text)
 
         elif verdict is Verdict.EMIT_OPERATOR:
+            # The user can use 1> or 2> to redirect stdout and stderr,
+            # So we need to check if the buffer is == 1 or 2
+            # So the operator ends as `1>` or `2>` instead of `>`, and the buffer is flushed as a token
+
             if (buffer == ["1"] or buffer == ["2"]) and not saw_quote:
                 op_buffer.append(buffer[0] + text)
                 buffer = []

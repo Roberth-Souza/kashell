@@ -18,7 +18,7 @@ class Redirect(NamedTuple):
 
     target: str | None
     fd: int = 1
-    mode: Literal["w", "a"] = "w"  # Can be "a" for append
+    mode: Literal["w", "a"] = "w"  # Literal because `open(mode=...)` only takes one
 
 
 def receive_command():
