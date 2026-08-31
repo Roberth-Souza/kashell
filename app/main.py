@@ -4,6 +4,7 @@ import subprocess
 import sys
 from typing import Literal, NamedTuple, TextIO
 
+from app.auto_complete import completer  # noqa: F401
 from app.handlers import built_ins
 from app.path import find_executable
 from app.tokenizer import (
@@ -23,15 +24,14 @@ class Redirect(NamedTuple):
 
 def receive_command():
     state = TokenizerState()
-    _ = sys.stdout.write("$ ")
-    command = input()
+    command = input("$ ")
 
     if not command or not command.strip():
         return None
 
     state = tokenizer(command, state)
     while state.unfinished:
-        print("> ", end="")
+        _ = input("> ")
         command = input()
         state = tokenizer(command, state)
 

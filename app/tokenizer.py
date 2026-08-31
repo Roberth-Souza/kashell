@@ -57,10 +57,6 @@ class TokenizerState(NamedTuple):
     unfinished: bool = False
 
 
-# TODO: classify_character is too complex, maybe i can break her in to steps with something like
-# handle_quoting()
-
-
 def classify_character(char: str, quote_type: str | None, escaping: bool) -> Result:
     """Return the action, the text to emit, and the updated state"""
 
@@ -114,6 +110,16 @@ def classify_character(char: str, quote_type: str | None, escaping: bool) -> Res
     return Result(Verdict.ACCUMULATE, quote_type=quote_type, escaping=False, text=char)
 
 
+def flush_token(
+    buffer: list[str], saw_quote: bool, tokens: list[Token]
+) -> tuple[list[str], bool]:
+    """Simply flushes a token and resets buffer and saw_quote"""
+    if buffer or saw_quote:
+        tokens.append(Token("".join(buffer)))
+        return [], False
+    return buffer, saw_quote
+
+
 def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
     """Split one input line into tokens, resuming from `state`"""
 
@@ -159,16 +165,13 @@ def tokenizer(command: str, state: TokenizerState) -> TokenizerState:
                 buffer = []
             else:
                 op_buffer.append(text)
-                if buffer or saw_quote:
-                    tokens.append(Token("".join(buffer)))
-                    buffer = []
+                buffer, saw_quote = flush_token(buffer, saw_quote, tokens)
 
         else:
             # FLUSH: an empty quoted token counts, a run of spaces does not
-            if buffer or saw_quote:
-                tokens.append(Token("".join(buffer)))
-                buffer = []
-                saw_quote = False
+            buffer, saw_quote = flush_token(
+                buffer, saw_quote, tokens
+            )  # buffer = [] / saw_quote = False
             continue
 
     # The line ended mid-token , on a backslash or inside an open quote. Keep the
